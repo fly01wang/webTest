@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试网页</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f5f7fa;
+        }
+
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        nav {
+            background: #34495e;
+            padding: 10px;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            flex: 1;
+            min-width: 250px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            color: #666;
+        }
+
+        .btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .form-section {
+            margin-top: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        #result {
+            margin-top: 15px;
+            font-weight: bold;
+            color: green;
+        }
+
+        footer {
+            margin-top: 50px;
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>测试网页</h1>
+    <p>HTML + CSS + JavaScript 示例页面</p>
+</header>
+
+<nav>
+    <ul>
+        <li><a href="#">首页</a></li>
+        <li><a href="#">产品</a></li>
+        <li><a href="#">关于</a></li>
+        <li><a href="#">联系</a></li>
+    </ul>
+</nav>
+
+<div class="container">
+
+    <h2>卡片展示区域</h2>
+
+    <div class="cards">
+        <div class="card">
+            <h3>卡片 1</h3>
+            <p>这是一个用于测试布局效果的卡片。</p>
+            <button class="btn" onclick="showMessage('卡片1被点击')">
+                点击我
+            </button>
+        </div>
+
+        <div class="card">
+            <h3>卡片 2</h3>
+            <p>测试响应式布局和阴影效果。</p>
+            <button class="btn" onclick="showMessage('卡片2被点击')">
+                点击我
+            </button>
+        </div>
+
+        <div class="card">
+            <h3>卡片 3</h3>
+            <p>用于验证CSS样式是否正常加载。</p>
+            <button class="btn" onclick="showMessage('卡片3被点击')">
+                点击我
+            </button>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h2>表单测试</h2>
+
+        <label>请输入姓名：</label>
+        <input type="text" id="nameInput" placeholder="请输入姓名">
+
+        <button class="btn" onclick="submitForm()">
+            提交
+        </button>
+
+        <div id="result"></div>
+    </div>
+
+</div>
+
+<footer>
+    <p>© 2026 Test Website</p>
+</footer>
+
+<script>
+    function showMessage(msg) {
+        alert(msg);
+    }
+
+    function submitForm() {
+        let name = document.getElementById("nameInput").value;
+
+        if(name.trim() === "") {
+            alert("请输入姓名");
+            return;
+        }
+
+        document.getElementById("result").innerHTML =
+            "欢迎您，" + name + "！表单提交成功。";
+    }
+</script>
+
+</body>
+</html>
