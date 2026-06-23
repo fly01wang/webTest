@@ -66,7 +66,9 @@ scene.add(group);
 var loaded = 0;
 var progressEl = document.getElementById("progress");
 var totalToLoad = 0;
-var maxTry = 100;
+
+// 统一 CDN 前缀
+var cdnBase = "https://pub-a55fc59f7c5248379a13436957374d56.r2.dev/photos/";
 
 function loadPhoto(idx, fileName) {
     var theta = Math.acos(1 - 2 * (idx + 0.5) / n);
@@ -77,7 +79,7 @@ function loadPhoto(idx, fileName) {
 
     var img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = "https://raw.githubusercontent.com/fly01wang/webTest/main/photos/" + fileName;
+    img.src = cdnBase + fileName;
     var tex = new THREE.Texture(img);
     tex.colorSpace = THREE.SRGBColorSpace;
     
@@ -142,7 +144,8 @@ function init() {
             if (checked >= maxTry) finish();
         };
         
-        img.src = "https://raw.githubusercontent.com/fly01wang/webTest/main/photos/" + fileName;
+        // 这里也换成 CDN
+        img.src = cdnBase + fileName;
     })(i);
     
     function finish() {
