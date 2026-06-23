@@ -25,8 +25,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-var photos = []; for (var i = 1; i <= 15; i++) photos.push(i === 1 ? "1.jpg" : i + ".png");
-var n = photos.length, R = 10, W = 2.6, H = 2.6 * 0.75;
+var photos = [];
+var n = 0;
+var R = 10, W = 2.6, H = 2.6 * 0.75;
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 3, 18);
@@ -64,8 +65,10 @@ scene.add(group);
 
 var loaded = 0;
 var progressEl = document.getElementById("progress");
+var totalToLoad = 0;
+var maxTry = 100;
 
-for (var i = 0; i < n; i++) (function(idx) {
+function loadPhoto(idx, fileName) {
     var theta = Math.acos(1 - 2 * (idx + 0.5) / n);
     var phi = 2 * Math.PI * idx / golden;
     var x = R * Math.sin(theta) * Math.cos(phi);
@@ -74,19 +77,29 @@ for (var i = 0; i < n; i++) (function(idx) {
 
     var img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = "https://raw.githubusercontent.com/fly01wang/webTest/main/photos/" + photos[idx];
+    img.src = "https://raw.githubusercontent.com/fly01wang/webTest/main/photos/" + fileName;
     var tex = new THREE.Texture(img);
     tex.colorSpace = THREE.SRGBColorSpace;
     
     img.onload = function() {
         loaded++;
-        progressEl.style.width = Math.min((loaded / n) * 100, 100) + "%";
-        if (loaded >= n) {
+        progressEl.style.width = Math.min((loaded / totalToLoad) * 100, 100) + "%";
+        if (loaded >= totalToLoad) {
             setTimeout(function() {
                 document.getElementById("loading").classList.add("hidden");
             }, 400);
         }
         tex.needsUpdate = true;
+    };
+
+    img.onerror = function() {
+        loaded++;
+        progressEl.style.width = Math.min((loaded / totalToLoad) * 100, 100) + "%";
+        if (loaded >= totalToLoad) {
+            setTimeout(function() {
+                document.getElementById("loading").classList.add("hidden");
+            }, 400);
+        }
     };
 
     var mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
@@ -106,7 +119,49 @@ for (var i = 0; i < n; i++) (function(idx) {
 
     group.add(mesh);
     group.add(border);
-})(i);
+}
+
+function init() {
+    var foundPhotos = [];
+    var checked = 0;
+    var maxTry = 50;
+    
+    for (var i = 1; i <= maxTry; i++) (function(num) {
+        var fileName = num + ".jpg";
+        var img = new Image();
+        img.crossOrigin = "anonymous";
+        
+        img.onload = function() {
+            foundPhotos.push(fileName);
+            checked++;
+            if (checked >= maxTry) finish();
+        };
+        
+        img.onerror = function() {
+            checked++;
+            if (checked >= maxTry) finish();
+        };
+        
+        img.src = "https://raw.githubusercontent.com/fly01wang/webTest/main/photos/" + fileName;
+    })(i);
+    
+    function finish() {
+        photos = foundPhotos.sort(function(a, b) {
+            return a.localeCompare(b, undefined, { numeric: true });
+        });
+        n = photos.length;
+        totalToLoad = n;
+        if (n > 0) {
+            for (var i = 0; i < n; i++) {
+                loadPhoto(i, photos[i]);
+            }
+        } else {
+            document.getElementById("loading").classList.add("hidden");
+        }
+    }
+}
+
+init();
 
 window.addEventListener("resize", function() {
     camera.aspect = window.innerWidth / window.innerHeight;
