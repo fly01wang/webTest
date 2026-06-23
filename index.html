@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Photo Sphere</title>
+    <title>全世界最漂亮的童童</title>
     <style>
         * { margin: 0; padding: 0; }
         body { overflow: hidden; background: #0a0a0f; font-family: sans-serif; }
@@ -18,7 +18,7 @@
 </head>
 <body>
 <div id="loading">
-    <div class="title">3D Photo Sphere</div>
+    <div class="title">全世界最漂亮的童童</div>
     <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
     <div class="hint">Loading photos...</div>
 </div>
@@ -55,7 +55,7 @@ ctr.minDistance = 6; ctr.maxDistance = 28; ctr.target.set(0, 0, 0);
 (function() {
     var g = new THREE.SphereGeometry(R * 1.008, 48, 48);
     scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
-        color: 0x3366cc, transparent: true, opacity: 0.035, wireframe: true
+        color: 0x3366cc, transparent: true, opacity: 0, wireframe: true
     })));
 })();
 
@@ -111,7 +111,7 @@ function loadPhoto(idx, fileName) {
     mesh.rotateY(Math.PI);
 
     var bMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff, transparent: true, opacity: 0.12, side: THREE.BackSide
+        color: 0xffffff, transparent: true, opacity: 0, side: THREE.BackSide
     });
     var border = new THREE.Mesh(
         new THREE.PlaneGeometry(W + 0.08, H + 0.08), bMat
