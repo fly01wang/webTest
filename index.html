@@ -5,177 +5,371 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>全世界最漂亮的童童</title>
     <style>
-        * { margin: 0; padding: 0; }
-        body { overflow: hidden; background: #0a0a0f; font-family: sans-serif; }
-        #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0a0a0f; z-index: 100; transition: opacity 0.8s ease; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #04040e; font-family: sans-serif; }
+        #loading {
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: #04040e;
+            z-index: 100; transition: opacity 1.2s ease;
+        }
         #loading.hidden { opacity: 0; pointer-events: none; }
-        #loading .title { font-size: 24px; color: #ccc; letter-spacing: 4px; font-weight: 300; }
-        #loading .progress-wrap { width: 220px; height: 3px; background: #1a1a24; border-radius: 2px; margin-top: 20px; overflow: hidden; }
-        #loading .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #4f7aff, #6dc8ff); border-radius: 2px; transition: width 0.3s ease; }
-        #loading .hint { margin-top: 16px; color: #555; }
+        #loading .title {
+            font-size: 26px; color: #f0b8d0; letter-spacing: 6px;
+            font-weight: 300; text-shadow: 0 0 24px rgba(255,140,180,0.7);
+        }
+        #loading .progress-wrap {
+            width: 240px; height: 2px; background: #1a1a2e;
+            border-radius: 2px; margin-top: 24px; overflow: hidden;
+        }
+        #loading .progress-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #ff6fa3, #ffb3cc, #ff6fa3);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s linear infinite;
+            border-radius: 2px; transition: width 0.3s ease;
+        }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        #loading .hint { margin-top: 16px; color: #664455; font-size: 13px; letter-spacing: 2px; }
         canvas { display: block; }
+        #title-overlay {
+            position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+            color: rgba(255,190,210,0.88); font-size: 17px; letter-spacing: 9px;
+            font-weight: 300; pointer-events: none; opacity: 0;
+            text-shadow: 0 0 28px rgba(255,110,160,0.9), 0 0 60px rgba(255,60,120,0.4);
+            transition: opacity 2.5s ease 1s;
+            white-space: nowrap;
+        }
+        #title-overlay.show { opacity: 1; }
     </style>
 </head>
 <body>
 <div id="loading">
     <div class="title">全世界最漂亮的童童</div>
     <div class="progress-wrap"><div class="progress-bar" id="progress"></div></div>
-    <div class="hint">Loading photos...</div>
+    <div class="hint">Loading memories...</div>
 </div>
+<div id="title-overlay">全世界最漂亮的童童</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-var photos = [];
-var n = 0;
-var R = 10, W = 2.6, H = 2.6 * 0.75;
-var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+(function () {
+
+/* ── Renderer & Scene ── */
+var scene  = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 2000);
 camera.position.set(0, 3, 18);
 var ren = new THREE.WebGLRenderer({ antialias: true });
-ren.setSize(window.innerWidth, window.innerHeight);
-ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+ren.setSize(innerWidth, innerHeight);
+ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+ren.setClearColor(0x04040e, 1);
 document.body.appendChild(ren.domElement);
-var ctr = new THREE.OrbitControls(camera, ren.domElement);
-ctr.enableDamping = true; ctr.dampingFactor = 0.06;
-ctr.autoRotate = true; ctr.autoRotateSpeed = 2.0;
-ctr.minDistance = 6; ctr.maxDistance = 28; ctr.target.set(0, 0, 0);
 
-// Starfield
-(function() {
-    var c = 3000, p = new Float32Array(c * 3);
-    for (var i = 0; i < c * 3; i++) p[i] = (Math.random() - 0.5) * 300;
-    var g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(p, 3));
-    scene.add(new THREE.Points(g, new THREE.PointsMaterial({
-        color: 0xffffff, size: 0.15, transparent: true, opacity: 0.7, sizeAttenuation: true
-    })));
-})();
-
-// Guide wireframe
-(function() {
-    var g = new THREE.SphereGeometry(R * 1.008, 48, 48);
-    scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
-        color: 0x3366cc, transparent: true, opacity: 0, wireframe: true
-    })));
-})();
-
-var golden = (1 + Math.pow(5, 0.5)) / 2;
-var group = new THREE.Group();
-scene.add(group);
-
-var loaded = 0;
-var progressEl = document.getElementById("progress");
-var totalToLoad = 0;
-
-// 统一 CDN 前缀
-var cdnBase = "https://pub-a55fc59f7c5248379a13436957374d56.r2.dev/photos/";
-
-function loadPhoto(idx, fileName) {
-    var theta = Math.acos(1 - 2 * (idx + 0.5) / n);
-    var phi = 2 * Math.PI * idx / golden;
-    var x = R * Math.sin(theta) * Math.cos(phi);
-    var y = R * Math.sin(theta) * Math.sin(phi);
-    var z = R * Math.cos(theta);
-
-    var img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = cdnBase + fileName;
-    var tex = new THREE.Texture(img);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    
-    img.onload = function() {
-        loaded++;
-        progressEl.style.width = Math.min((loaded / totalToLoad) * 100, 100) + "%";
-        if (loaded >= totalToLoad) {
-            setTimeout(function() {
-                document.getElementById("loading").classList.add("hidden");
-            }, 400);
-        }
-        tex.needsUpdate = true;
-    };
-
-    img.onerror = function() {
-        loaded++;
-        progressEl.style.width = Math.min((loaded / totalToLoad) * 100, 100) + "%";
-        if (loaded >= totalToLoad) {
-            setTimeout(function() {
-                document.getElementById("loading").classList.add("hidden");
-            }, 400);
-        }
-    };
-
-    var mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
-    var mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), mat);
-    mesh.position.set(x, y, z);
-    mesh.lookAt(0, 0, 0);
-    mesh.rotateY(Math.PI);
-
-    var bMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff, transparent: true, opacity: 0, side: THREE.BackSide
-    });
-    var border = new THREE.Mesh(
-        new THREE.PlaneGeometry(W + 0.08, H + 0.08), bMat
+/* ── Inline Orbit Controls ── */
+var sph = {theta:0, phi:1.2, r:18};
+var tgt = {theta:0, phi:1.2, r:18};
+var drag = false, prev = {x:0,y:0}, autoRot = true;
+ren.domElement.addEventListener('mousedown', function(e){ drag=true; autoRot=false; prev={x:e.clientX,y:e.clientY}; });
+ren.domElement.addEventListener('touchstart', function(e){ drag=true; autoRot=false; prev={x:e.touches[0].clientX,y:e.touches[0].clientY}; },{passive:true});
+window.addEventListener('mouseup',  function(){ drag=false; setTimeout(function(){ autoRot=true; },3000); });
+window.addEventListener('touchend', function(){ drag=false; setTimeout(function(){ autoRot=true; },3000); });
+window.addEventListener('mousemove', function(e){
+    if(!drag) return;
+    tgt.theta -= (e.clientX-prev.x)*0.005;
+    tgt.phi = Math.max(0.25, Math.min(Math.PI-0.25, tgt.phi+(e.clientY-prev.y)*0.005));
+    prev={x:e.clientX,y:e.clientY};
+});
+window.addEventListener('touchmove', function(e){
+    if(!drag) return;
+    tgt.theta -= (e.touches[0].clientX-prev.x)*0.005;
+    tgt.phi = Math.max(0.25, Math.min(Math.PI-0.25, tgt.phi+(e.touches[0].clientY-prev.y)*0.005));
+    prev={x:e.touches[0].clientX,y:e.touches[0].clientY};
+},{passive:true});
+ren.domElement.addEventListener('wheel', function(e){
+    tgt.r = Math.max(7, Math.min(32, tgt.r+e.deltaY*0.02));
+});
+function updateCamera(){
+    if(autoRot) tgt.theta += 0.0022;
+    sph.theta += (tgt.theta-sph.theta)*0.06;
+    sph.phi   += (tgt.phi  -sph.phi  )*0.06;
+    sph.r     += (tgt.r    -sph.r    )*0.06;
+    camera.position.set(
+        sph.r*Math.sin(sph.phi)*Math.cos(sph.theta),
+        sph.r*Math.cos(sph.phi),
+        sph.r*Math.sin(sph.phi)*Math.sin(sph.theta)
     );
-    border.position.copy(mesh.position);
-    border.quaternion.copy(mesh.quaternion);
-
-    group.add(mesh);
-    group.add(border);
+    camera.lookAt(0,0,0);
 }
 
-function init() {
-    var foundPhotos = [];
-    var checked = 0;
-    var maxTry = 50;
-    
-    for (var i = 1; i <= maxTry; i++) (function(num) {
-        var fileName = num + ".jpg";
-        var img = new Image();
-        img.crossOrigin = "anonymous";
-        
-        img.onload = function() {
-            foundPhotos.push(fileName);
-            checked++;
-            if (checked >= maxTry) finish();
-        };
-        
-        img.onerror = function() {
-            checked++;
-            if (checked >= maxTry) finish();
-        };
-        
-        // 这里也换成 CDN
-        img.src = cdnBase + fileName;
-    })(i);
-    
-    function finish() {
-        photos = foundPhotos.sort(function(a, b) {
-            return a.localeCompare(b, undefined, { numeric: true });
-        });
-        n = photos.length;
-        totalToLoad = n;
-        if (n > 0) {
-            for (var i = 0; i < n; i++) {
-                loadPhoto(i, photos[i]);
-            }
-        } else {
-            document.getElementById("loading").classList.add("hidden");
+/* ── Starfield – 4 depth layers ── */
+[[4000,0.09,0.90,600,0xffffff],
+ [800, 0.18,0.60,350,0xffe0ee],
+ [300, 0.28,0.40,220,0xffbbcc],
+ [80,  0.50,0.25,160,0xff88aa]
+].forEach(function(l){
+    var p=new Float32Array(l[0]*3);
+    for(var i=0;i<p.length;i++) p[i]=(Math.random()-0.5)*l[3];
+    var g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(p,3));
+    scene.add(new THREE.Points(g,new THREE.PointsMaterial({
+        color:l[4],size:l[1],transparent:true,opacity:l[2],sizeAttenuation:true
+    })));
+});
+
+/* ── Individual twinkling stars ── */
+var twinkleStars=[];
+(function(){
+    for(var i=0;i<120;i++){
+        var r=60+Math.random()*120, th=Math.random()*Math.PI*2, ph=Math.random()*Math.PI;
+        var pos=new Float32Array([r*Math.sin(ph)*Math.cos(th), r*Math.cos(ph), r*Math.sin(ph)*Math.sin(th)]);
+        var g=new THREE.BufferGeometry();
+        g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+        var pts=new THREE.Points(g,new THREE.PointsMaterial({
+            color:0xffddee, size:0.4+Math.random()*0.7, transparent:true, opacity:0, sizeAttenuation:true
+        }));
+        scene.add(pts);
+        twinkleStars.push({pts:pts, phase:Math.random()*Math.PI*2, spd:0.8+Math.random()*1.8});
+    }
+})();
+
+/* ── Aurora wisps ── */
+var wisps=[];
+(function(){
+    var wc=[0x661133,0x220055,0x440022,0x330044];
+    for(var i=0;i<6;i++){
+        var mesh=new THREE.Mesh(
+            new THREE.PlaneGeometry(60+Math.random()*50, 20+Math.random()*20),
+            new THREE.MeshBasicMaterial({color:wc[i%4],transparent:true,opacity:0.04+Math.random()*0.04,side:THREE.DoubleSide,depthWrite:false})
+        );
+        var dist=50+Math.random()*60, th=Math.random()*Math.PI*2, ph=0.3+Math.random()*0.6;
+        mesh.position.set(dist*Math.sin(ph)*Math.cos(th),(Math.random()-0.5)*40,dist*Math.sin(ph)*Math.sin(th));
+        mesh.rotation.set(Math.random()*0.5,(Math.random()-0.5)*Math.PI,Math.random()*0.3);
+        wisps.push({mesh:mesh,spd:(Math.random()-0.5)*0.0004,ph:Math.random()*Math.PI*2,baseY:mesh.position.y});
+        scene.add(mesh);
+    }
+})();
+
+/* ── Heart shape builder ── */
+function makeHeartGeo(s){
+    var shape=new THREE.Shape();
+    shape.moveTo(0,s*0.25);
+    shape.bezierCurveTo( s*0.5, s*0.6,  s,    s*0.4,  s*0.5, 0);
+    shape.bezierCurveTo( s*0.25,-s*0.3, 0,   -s*0.1,  0,    -s*0.2);
+    shape.bezierCurveTo( 0,    -s*0.1, -s*0.25,-s*0.3,-s*0.5, 0);
+    shape.bezierCurveTo(-s,     s*0.4, -s*0.5,  s*0.6,  0,    s*0.25);
+    var geo=new THREE.ExtrudeGeometry(shape,{depth:s*0.35,bevelEnabled:true,bevelThickness:s*0.04,bevelSize:s*0.04,bevelSegments:2});
+    geo.center();
+    return geo;
+}
+
+/* ── Outer floating hearts cloud ── */
+var hearts=[];
+var hColors=[0xff6fa3,0xff4488,0xfe90bb,0xe63a78,0xffb3cc,0xd63069,0xff77aa,0xcc2266];
+for(var i=0;i<80;i++){
+    var s=0.14+Math.random()*0.55;
+    var mesh=new THREE.Mesh(makeHeartGeo(s),new THREE.MeshBasicMaterial({
+        color:hColors[i%hColors.length],transparent:true,opacity:0.72,side:THREE.DoubleSide
+    }));
+    var dist=16+Math.random()*24, th=Math.random()*Math.PI*2, ph=Math.random()*Math.PI;
+    mesh.position.set(dist*Math.sin(ph)*Math.cos(th), dist*Math.cos(ph)*0.6, dist*Math.sin(ph)*Math.sin(th));
+    mesh.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
+    hearts.push({mesh:mesh,ry:(Math.random()-0.5)*0.010,rx:(Math.random()-0.5)*0.006,
+        fAmp:0.10+Math.random()*0.24,fSpd:0.30+Math.random()*0.60,fPh:Math.random()*Math.PI*2,baseY:mesh.position.y});
+    scene.add(mesh);
+}
+
+/* ── Orbiting heart ring ── */
+var ringHearts=[];
+for(var i=0;i<14;i++){
+    var mesh=new THREE.Mesh(makeHeartGeo(0.10),new THREE.MeshBasicMaterial({
+        color:0xff88bb,transparent:true,opacity:0.58,side:THREE.DoubleSide
+    }));
+    ringHearts.push({mesh:mesh,base:(i/14)*Math.PI*2});
+    scene.add(mesh);
+}
+
+/* ── Love particle fountain ── */
+var fountain=[];
+var ftnGeo=makeHeartGeo(0.07);
+for(var i=0;i<22;i++){
+    var mesh=new THREE.Mesh(ftnGeo.clone(),new THREE.MeshBasicMaterial({
+        color:hColors[i%hColors.length],transparent:true,opacity:0,side:THREE.DoubleSide
+    }));
+    var angle=Math.random()*Math.PI*2, spawnR=1.5+Math.random()*2.5;
+    fountain.push({mesh:mesh,spawnX:Math.cos(angle)*spawnR,spawnZ:Math.sin(angle)*spawnR,
+        t:Math.random(),spd:0.0018+Math.random()*0.0022,wobble:Math.random()*Math.PI*2});
+    scene.add(mesh);
+}
+
+/* ── Shooting stars ── */
+var meteors=[], meteorCooldown=2, meteorPool=5;
+function spawnMeteor(){
+    var startR=85+Math.random()*40, th=Math.random()*Math.PI*2, ph=0.08+Math.random()*0.55;
+    var sx=startR*Math.sin(ph)*Math.cos(th), sy=startR*Math.cos(ph), sz=startR*Math.sin(ph)*Math.sin(th);
+    var dx=-sx*0.013+(Math.random()-0.5)*0.35, dy=-0.32-Math.random()*0.28, dz=-sz*0.013+(Math.random()-0.5)*0.35;
+    var len=14+Math.random()*18, segs=28;
+    var pos=new Float32Array(segs*3), col=new Float32Array(segs*3);
+    for(var j=0;j<segs;j++){
+        var ft=j/(segs-1);
+        pos[j*3]=sx+dx*ft*len; pos[j*3+1]=sy+dy*ft*len; pos[j*3+2]=sz+dz*ft*len;
+        var b=1-ft; col[j*3]=1; col[j*3+1]=0.7*b+0.3; col[j*3+2]=0.8*b+0.2;
+    }
+    var geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos.slice(),3));
+    geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+    var mat=new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0});
+    var line=new THREE.Line(geo,mat);
+    scene.add(line);
+    meteors.push({line:line,geo:geo,pa:geo.attributes.position,sx:sx,sy:sy,sz:sz,dx:dx,dy:dy,dz:dz,len:len,segs:segs,travel:0,spd:0.025+Math.random()*0.025});
+}
+function updateMeteors(){
+    for(var i=meteors.length-1;i>=0;i--){
+        var m=meteors[i]; m.travel+=m.spd;
+        var life=m.travel;
+        var op=life<0.08?life/0.08:life>0.75?Math.max(0,1-(life-0.75)/0.25):1;
+        m.line.material.opacity=op*0.95;
+        for(var j=0;j<m.segs;j++){
+            var jT=(m.travel-1)+j/(m.segs-1);
+            m.pa.setXYZ(j,m.sx+m.dx*jT*m.len,m.sy+m.dy*jT*m.len,m.sz+m.dz*jT*m.len);
         }
+        m.pa.needsUpdate=true;
+        if(life>=1.12){ scene.remove(m.line); m.geo.dispose(); m.line.material.dispose(); meteors.splice(i,1); }
     }
 }
 
+/* ── Sparkle dots (sphere meshes, no buffer artifacts) ── */
+var sparkDots=[];
+(function(){
+    var sGeo=new THREE.SphereGeometry(1,4,4);
+    for(var i=0;i<55;i++){
+        var r2=11.5+Math.random()*4, th2=Math.random()*Math.PI*2, ph2=Math.random()*Math.PI;
+        var x2=r2*Math.sin(ph2)*Math.cos(th2), y2=r2*Math.cos(ph2), z2=r2*Math.sin(ph2)*Math.sin(th2);
+        var mesh=new THREE.Mesh(sGeo,new THREE.MeshBasicMaterial({color:0xffccdd,transparent:true,opacity:0.9}));
+        mesh.scale.setScalar(0.04+Math.random()*0.07);
+        mesh.position.set(x2,y2,z2);
+        scene.add(mesh);
+        sparkDots.push({mesh:mesh,r:r2,theta:th2,phi:ph2,dtH:0.0008+Math.random()*0.0012,dtV:0.0004+Math.random()*0.0008,phase:Math.random()*Math.PI*2});
+    }
+})();
+
+/* ── Photo sphere ── */
+var R=10, W=2.6, H=2.6*0.75;
+var photoGroup=new THREE.Group();
+scene.add(photoGroup);
+var golden=(1+Math.sqrt(5))/2;
+var photos=[], n=0, loaded=0, totalToLoad=0;
+var progressEl=document.getElementById('progress');
+var cdnBase='https://pub-a55fc59f7c5248379a13436957374d56.r2.dev/photos/';
+
+function loadPhoto(idx,fileName){
+    var th=Math.acos(1-2*(idx+0.5)/n), ph=2*Math.PI*idx/golden;
+    var x=R*Math.sin(th)*Math.cos(ph), y=R*Math.sin(th)*Math.sin(ph), z=R*Math.cos(th);
+    var img=new Image(); img.crossOrigin='anonymous'; img.src=cdnBase+fileName;
+    var tex=new THREE.Texture(img); tex.colorSpace=THREE.SRGBColorSpace;
+    function done(){
+        loaded++;
+        progressEl.style.width=Math.min(loaded/totalToLoad*100,100)+'%';
+        if(loaded>=totalToLoad){
+            setTimeout(function(){
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('title-overlay').classList.add('show');
+            },500);
+        }
+    }
+    img.onload=function(){ tex.needsUpdate=true; done(); };
+    img.onerror=done;
+    var mesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
+    mesh.position.set(x,y,z); mesh.lookAt(0,0,0); mesh.rotateY(Math.PI);
+    photoGroup.add(mesh);
+    var eg=new THREE.EdgesGeometry(new THREE.PlaneGeometry(W+0.10,H+0.10));
+    var em=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0xff88bb,transparent:true,opacity:0.5}));
+    var outward=new THREE.Vector3(x,y,z).normalize();
+    em.position.copy(mesh.position).addScaledVector(outward,-0.005);
+    em.quaternion.copy(mesh.quaternion);
+    photoGroup.add(em);
+}
+
+function init(){
+    var found=[],checked=0,maxTry=50;
+    for(var i=1;i<=maxTry;i++)(function(num){
+        var fn=num+'.jpg', img=new Image(); img.crossOrigin='anonymous';
+        img.onload=function(){ found.push(fn); checked++; if(checked>=maxTry) finish(); };
+        img.onerror=function(){ checked++; if(checked>=maxTry) finish(); };
+        img.src=cdnBase+fn;
+    })(i);
+    function finish(){
+        photos=found.sort(function(a,b){ return a.localeCompare(b,undefined,{numeric:true}); });
+        n=totalToLoad=photos.length;
+        if(n>0){ for(var i=0;i<n;i++) loadPhoto(i,photos[i]); }
+        else{ document.getElementById('loading').classList.add('hidden'); document.getElementById('title-overlay').classList.add('show'); }
+    }
+}
 init();
 
-window.addEventListener("resize", function() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+window.addEventListener('resize',function(){
+    camera.aspect=innerWidth/innerHeight;
     camera.updateProjectionMatrix();
-    ren.setSize(window.innerWidth, window.innerHeight);
+    ren.setSize(innerWidth,innerHeight);
 });
 
-(function loop() {
+/* ── Animation loop ── */
+var clock=new THREE.Clock();
+(function loop(){
     requestAnimationFrame(loop);
-    ctr.update();
-    ren.render(scene, camera);
+    var t=clock.getElapsedTime();
+
+
+    wisps.forEach(function(w){
+        w.mesh.rotation.y+=w.spd;
+        w.mesh.position.y=w.baseY+Math.sin(t*0.18+w.ph)*5;
+        w.mesh.material.opacity=0.03+0.025*Math.sin(t*0.25+w.ph);
+    });
+
+    hearts.forEach(function(h){
+        h.mesh.rotation.x+=h.rx;
+        h.mesh.rotation.y+=h.ry;
+        h.mesh.position.y=h.baseY+Math.sin(t*h.fSpd+h.fPh)*h.fAmp;
+        h.mesh.material.opacity=0.58+0.20*Math.sin(t*h.fSpd*1.3+h.fPh);
+    });
+
+    ringHearts.forEach(function(rh,i){
+        var a=rh.base+t*0.16;
+        rh.mesh.position.set(Math.cos(a)*13.5,Math.sin(t*0.38+i*0.45)*1.1,Math.sin(a)*13.5);
+        rh.mesh.rotation.y+=0.018; rh.mesh.rotation.z+=0.009;
+    });
+
+    fountain.forEach(function(f){
+        f.t+=f.spd; if(f.t>1) f.t=0;
+        var life=f.t;
+        var wobX=Math.sin(t*0.8+f.wobble)*1.2*life, wobZ=Math.cos(t*0.6+f.wobble)*1.0*life;
+        f.mesh.position.set(f.spawnX+wobX,-12+life*32,f.spawnZ+wobZ);
+        f.mesh.rotation.y+=0.02;
+        var op=life<0.1?life/0.1:life>0.7?(1-life)/0.3:1;
+        f.mesh.material.opacity=op*0.75;
+        f.mesh.scale.setScalar(0.5+life*1.2);
+    });
+
+    sparkDots.forEach(function(s){
+        s.theta+=s.dtH;
+        s.phi+=s.dtV*Math.sin(t*0.3+s.phase);
+        var r2=s.r+Math.sin(t*0.5+s.phase)*0.8;
+        s.mesh.position.set(r2*Math.sin(s.phi)*Math.cos(s.theta),r2*Math.cos(s.phi),r2*Math.sin(s.phi)*Math.sin(s.theta));
+        s.mesh.material.opacity=0.3+0.7*Math.abs(Math.sin(t*1.4+s.phase));
+    });
+
+    twinkleStars.forEach(function(s){
+        s.pts.material.opacity=0.2+0.8*Math.pow(Math.abs(Math.sin(t*s.spd+s.phase)),2);
+    });
+
+    photoGroup.rotation.y+=0.0007;
+
+    meteorCooldown-=0.016;
+    if(meteorCooldown<=0&&meteors.length<meteorPool){ meteorCooldown=3+Math.random()*7; spawnMeteor(); }
+    updateMeteors();
+
+    updateCamera();
+    ren.render(scene,camera);
+})();
+
 })();
 </script>
 </body>
